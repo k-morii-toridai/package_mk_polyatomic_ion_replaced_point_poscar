@@ -1,12 +1,6 @@
-import argparse
 import itertools
-from multiprocessing import Pool, cpu_count
-import os
-from pathlib import Path
 
-import numpy as np
 import pandas as pd
-from tqdm import tqdm
 
 from package_file_conversion.poscar2df import poscar2df
 from package_file_conversion.nnlist2df import nnlist2df
@@ -16,14 +10,14 @@ from package_file_conversion.df2poscar import df2poscar
 
 def mk_polyatomic_ion_replaced_point_poscar(poscar_path,
                                             nnlist_path,
-                                            central_atom_symbol='C', 
-                                            neighboring_atom_symbol='O', 
-                                            bond_length_lower_end=0.99, 
-                                            bond_length_upper_end=1.66, 
+                                            central_atom_symbol='C',
+                                            neighboring_atom_symbol='O',
+                                            bond_length_lower_end=0.99,
+                                            bond_length_upper_end=1.66,
                                             generated_poscar_path='./ion_replaced_point/POSCAR'):
     """
     This func() makes a new POSCAR file which polyatomic ion replaced a point.
-    
+
     Usage:
     ------
     mk_polyatomic_ion_replaced_point_poscar(poscar_path=poscar_path,
@@ -43,7 +37,7 @@ def mk_polyatomic_ion_replaced_point_poscar(poscar_path,
     bond_length_lower_end: str or float
     bond_length_upper_end: str or float
     generated_poscar_path: str or pathlib.Path
-    
+
     Return:
     -------
     None
@@ -51,27 +45,27 @@ def mk_polyatomic_ion_replaced_point_poscar(poscar_path,
     # 0-1. POSCAR, POSCAR.nnlistをDataFrameに変換する
     df_poscar = poscar2df(poscar_path=poscar_path)
     df_nnlist = nnlist2df(nnlist_path=nnlist_path)
-    
+
     # 0-2. 多原子イオンを含むかどうかの判定フィルター関数を実行
     central_atom_symbol = central_atom_symbol
     neighboring_atom_symbol = neighboring_atom_symbol
     bond_length_lower_end = float(bond_length_lower_end)
     bond_length_upper_end = float(bond_length_upper_end)
     bool_, ion_central_atom_ids = concat_filter(df_nnlist=df_nnlist,
-                  central_atom_symbol=central_atom_symbol,
-                  neighboring_atom_symbol=neighboring_atom_symbol,
-                  bond_length_lower_end=bond_length_lower_end,
-                  bond_length_upper_end=bond_length_upper_end)
+                                                central_atom_symbol=central_atom_symbol,
+                                                neighboring_atom_symbol=neighboring_atom_symbol,
+                                                bond_length_lower_end=bond_length_lower_end,
+                                                bond_length_upper_end=bond_length_upper_end)
 
     if bool_:
         # 1. 多原子イオンを点で置換した絶対座標のDataFrameを作成
         atom_ids_belonging_to_polyatomic_ions = []
-        for ion_central_atom_id in ion_central_atom_ids: 
+        for ion_central_atom_id in ion_central_atom_ids:
             df_nnlist_ion_central_atom_id_filterd = df_nnlist[df_nnlist['central_atom_id'] == ion_central_atom_id]
             df_nnlist_ion_central_atom_id_filterd_sorted = df_nnlist_ion_central_atom_id_filterd.sort_values('rel_distance')
             df_nnlist_rel_distance_filter = df_nnlist_ion_central_atom_id_filterd_sorted['rel_distance'] < bond_length_upper_end
             df_nnlist_rel_distance_filterd = df_nnlist_ion_central_atom_id_filterd.sort_values('rel_distance')[df_nnlist_rel_distance_filter]
-            ## 'neighboring_atom_id'カラムをリストとして取得
+            # 'neighboring_atom_id'カラムをリストとして取得
             neighboring_atom_ids = df_nnlist_rel_distance_filterd['neighboring_atom_id'].tolist()
             atom_ids_belonging_to_polyatomic_ions.append(neighboring_atom_ids)
         # 2重リストを1重リストに変換
@@ -91,14 +85,14 @@ def mk_polyatomic_ion_replaced_point_poscar(poscar_path,
 
         # 2. 多原子イオンの相対中心座標のDataFrameを作成
         df_nnlist_rel_coords_series_list = []
-        for ion_central_atom_id in ion_central_atom_ids: 
+        for ion_central_atom_id in ion_central_atom_ids:
             df_nnlist_ion_central_atom_id_filterd = df_nnlist[df_nnlist['central_atom_id'] == ion_central_atom_id]
             df_nnlist_ion_central_atom_id_filterd_sorted = df_nnlist_ion_central_atom_id_filterd.sort_values('rel_distance')
-            df_nnlist_rel_distance_filter = df_nnlist_ion_central_atom_id_filterd_sorted['rel_distance'] < bond_length_upper_end    
+            df_nnlist_rel_distance_filter = df_nnlist_ion_central_atom_id_filterd_sorted['rel_distance'] < bond_length_upper_end
             df_nnlist_rel_distance_filterd = df_nnlist_ion_central_atom_id_filterd.sort_values('rel_distance')[df_nnlist_rel_distance_filter]
-            ## rel_x, re_y, re_zごとに平均をとる
+            # rel_x, re_y, re_zごとに平均をとる
             df_nnlist_rel_distance_filterd_cols_dropped = df_nnlist_rel_distance_filterd[['central_atom_id', 'rel_x', 'rel_y', 'rel_z']]
-            # 'central_atom_symbol'カラムでgroupbyしmeanを計算した後，groupbyed列(:'central_atom_symbol'カラム)をカラムにする   
+            # 'central_atom_symbol'カラムでgroupbyしmeanを計算した後，groupbyed列(:'central_atom_symbol'カラム)をカラムにする
             df_nnlist_rel_distance_filterd_cols_dropped_meaned = df_nnlist_rel_distance_filterd_cols_dropped.groupby('central_atom_id').mean().reset_index()
             df_nnlist_rel_coords_series_list.append(df_nnlist_rel_distance_filterd_cols_dropped_meaned)
         # df_nnlist_rel_coords_series_listのSeriesを文字列化して，df_poscarと同じ形式のDataFrameに整形する
@@ -120,7 +114,7 @@ def mk_polyatomic_ion_replaced_point_poscar(poscar_path,
 
         # 4. 3.で生成したdf_poscar_ion_replaced_pointをdf2poscar()を用いてPOSCARファイルとして書き出す
         df2poscar(df_poscar_ion_replaced_point, original_poscar_path=poscar_path, generated_poscar_path=generated_poscar_path)
-    
+
     else:
         pass
 
