@@ -4,7 +4,7 @@ import pandas as pd
 
 from package_file_conversion.poscar2df import poscar2df
 from package_file_conversion.nnlist2df import nnlist2df
-from package_bond_search_algorithm.algolithm_bond_search_for_tetrahedral_shape import concat_filter
+from package_bond_search_algorithms.algolithm_bond_search_for_tetrahedral_shape import concat_filter
 from package_file_conversion.df2poscar import df2poscar
 
 
